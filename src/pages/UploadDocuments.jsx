@@ -11,6 +11,10 @@ import {
   hasAttachmentDisplay,
   manifestToAttachmentMap,
 } from '../lib/userDocumentPublicPath.js'
+import { getCaseProfile } from '../data/caseProfiles'
+import DocumentPreviewModal from '../components/DocumentPreviewModal'
+import DocumentStatusBadge from '../components/DocumentStatusBadge'
+import { getDocumentChecklist, getDocumentFields } from '../config/documentFieldConfig'
 
 const TEAL_PRIMARY = '#157a9e'
 const TEAL_PARTY = '#047896'
@@ -281,6 +285,11 @@ function DocumentRow({
   attachment = null,
   onFileSelected = null,
   registerPickTrigger = null,
+  onExpandPreview = null,
+  scope = '',
+  deriveDocType = null,
+  readChecklistProgress = null,
+  readMismatches = null,
 }) {
   const typeOptions = documentTypeOptions ?? []
   const hasChoiceList = typeOptions.length > 0
@@ -302,6 +311,7 @@ function DocumentRow({
   }, [registerPickTrigger, uploadKey])
 
   const statusText = attachment?.name ?? 'No file chosen'
+  const checklistProgress = readChecklistProgress ? readChecklistProgress(uploadKey) : { done: 0, total: 0 }
 
   const onInputChange = (e) => {
     const f = e.target.files?.[0]
@@ -350,20 +360,59 @@ function DocumentRow({
           <label className="mb-1 block text-[12px] text-[#374151]">Files</label>
           <div className="flex items-center gap-2">
             {hasFile ? (
-              <button
-                type="button"
-                onClick={() => setAttachmentsOpen((o) => !o)}
-                aria-expanded={attachmentsOpen}
-                aria-label={attachmentsOpen ? 'Hide file preview' : 'Show file preview'}
-                className="flex min-h-[38px] flex-1 cursor-pointer items-center rounded border border-[#dee2e6] bg-white px-2 text-left text-[12px] text-[#374151] outline-none transition-colors hover:bg-[#f8fafc] focus-visible:border-[#157a9e] focus-visible:ring-2 focus-visible:ring-[#157a9e]/25"
-              >
-                <span className="shrink-0 rounded border border-[#dee2e6] bg-[#f0f1f3] px-2 py-1 text-[11px]">
-                  Preview
-                </span>
-                <span className="ml-2 min-w-0 flex-1 truncate text-[11px] text-[#374151]">
-                  {statusText}
-                </span>
-              </button>
+              <div className="flex min-w-0 flex-1 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!onExpandPreview || !attachment) return
+                    onExpandPreview({
+                      ...attachment,
+                      uploadKey,
+                      scope: DOCUMENT_UPLOAD_SCOPE,
+                      docType: docType,
+                      label: docType,
+                      type: attachment.type || (attachment.kind === 'pdf' ? 'application/pdf' : 'image/*'),
+                    })
+                  }}
+                  aria-expanded={attachmentsOpen}
+                  aria-label={attachmentsOpen ? 'Hide file preview' : 'Show file preview'}
+                  className="flex min-h-[38px] flex-1 cursor-pointer items-center rounded border border-[#dee2e6] bg-white px-2 text-left text-[12px] text-[#374151] outline-none transition-colors hover:bg-[#f8fafc] focus-visible:border-[#157a9e] focus-visible:ring-2 focus-visible:ring-[#157a9e]/25"
+                >
+                  <span className="shrink-0 rounded border border-[#dee2e6] bg-[#f0f1f3] px-2 py-1 text-[11px]">
+                    Preview
+                  </span>
+                  <span className="ml-2 min-w-0 flex-1 truncate text-[11px] text-[#374151]">
+                    {statusText}
+                  </span>
+                  <span className="ml-2 shrink-0">
+                    <DocumentStatusBadge uploadKey={uploadKey} showControls={false} />
+                  </span>
+                  <span className="ml-1 shrink-0 rounded border border-[#e8ecef] bg-[#f8f9fb] px-1.5 py-[1px] text-[10px] font-semibold text-[#6a7380]">
+                    {checklistProgress.done}/{checklistProgress.total}
+                  </span>
+                  {(() => {
+                    const mCount =
+                      readMismatches && deriveDocType
+                        ? readMismatches(uploadKey, deriveDocType({ uploadKey }), scope)
+                        : 0
+                    return mCount > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: '#92400e',
+                          background: '#fffbeb',
+                          border: '1px solid #fcd34d',
+                          borderRadius: 4,
+                          padding: '1px 5px',
+                          marginLeft: 4,
+                        }}
+                      >
+                        ⚠ {mCount} mismatch{mCount > 1 ? 'es' : ''}
+                      </span>
+                    ) : null
+                  })()}
+                </button>
+              </div>
             ) : (
               <label
                 htmlFor={fileInputId}
@@ -392,7 +441,17 @@ function DocumentRow({
                 accent={accent}
                 count={1}
                 expanded={attachmentsOpen}
-                onToggle={() => setAttachmentsOpen((o) => !o)}
+                onToggle={() => {
+                  if (!onExpandPreview || !attachment) return
+                  onExpandPreview({
+                    ...attachment,
+                    uploadKey,
+                    scope: DOCUMENT_UPLOAD_SCOPE,
+                    docType: docType,
+                    label: docType,
+                    type: attachment.type || (attachment.kind === 'pdf' ? 'application/pdf' : 'image/*'),
+                  })
+                }}
               />
             ) : null}
           </div>
@@ -418,14 +477,8 @@ function DocumentRow({
       {attachmentsOpen && hasAttachmentDisplay(attachment) ? (
         <div
           className="mt-4 w-full cursor-pointer rounded-lg border border-[#94a3b8] bg-[#eef2f7] p-2 shadow-md sm:p-4 md:p-6"
-          onClick={() => setAttachmentsOpen(false)}
-          title="Click to hide preview"
-          role="presentation"
         >
-          <FullSizeAttachmentPreview
-            file={attachment}
-            onRequestClose={() => setAttachmentsOpen(false)}
-          />
+          <FullSizeAttachmentPreview file={attachment} />
         </div>
       ) : null}
     </div>
@@ -444,6 +497,11 @@ function KycDocumentRow({
   attachment = null,
   onFileSelected = null,
   registerPickTrigger = null,
+  onExpandPreview = null,
+  scope = '',
+  deriveDocType = null,
+  readChecklistProgress = null,
+  readMismatches = null,
 }) {
   const [kycType, setKycType] = useState(() =>
     defaultKycType === 'nid' || defaultKycType === 'photograph' ? defaultKycType : 'photograph',
@@ -460,6 +518,7 @@ function KycDocumentRow({
   }, [registerPickTrigger, uploadKey])
 
   const statusText = attachment?.name ?? 'No file chosen'
+  const checklistProgress = readChecklistProgress ? readChecklistProgress(uploadKey) : { done: 0, total: 0 }
 
   const onInputChange = (e) => {
     const f = e.target.files?.[0]
@@ -503,20 +562,59 @@ function KycDocumentRow({
           </label>
           <div className="flex items-center gap-2">
             {hasFile ? (
-              <button
-                type="button"
-                onClick={() => setAttachmentsOpen((o) => !o)}
-                aria-expanded={attachmentsOpen}
-                aria-label={attachmentsOpen ? 'Hide file preview' : 'Show file preview'}
-                className="flex min-h-[38px] w-full min-w-0 flex-1 cursor-pointer items-center rounded border border-[#dee2e6] bg-white px-2 text-left text-[12px] text-[#374151] outline-none transition-colors hover:bg-[#f8fafc] focus-visible:border-[#047896] focus-visible:ring-2 focus-visible:ring-[#047896]/25"
-              >
-                <span className="shrink-0 rounded border border-[#dee2e6] bg-[#f0f1f3] px-2 py-1 text-[11px]">
-                  Preview
-                </span>
-                <span className="ml-2 min-w-0 flex-1 truncate text-[11px] text-[#374151]">
-                  {statusText}
-                </span>
-              </button>
+              <div className="flex w-full min-w-0 flex-1 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!onExpandPreview || !attachment) return
+                    onExpandPreview({
+                      ...attachment,
+                      uploadKey,
+                      scope: DOCUMENT_UPLOAD_SCOPE,
+                      docType: kycType,
+                      label: KYC_TYPE_LABEL[kycType] ?? 'Document',
+                      type: attachment.type || (attachment.kind === 'pdf' ? 'application/pdf' : 'image/*'),
+                    })
+                  }}
+                  aria-expanded={attachmentsOpen}
+                  aria-label={attachmentsOpen ? 'Hide file preview' : 'Show file preview'}
+                  className="flex min-h-[38px] w-full min-w-0 flex-1 cursor-pointer items-center rounded border border-[#dee2e6] bg-white px-2 text-left text-[12px] text-[#374151] outline-none transition-colors hover:bg-[#f8fafc] focus-visible:border-[#047896] focus-visible:ring-2 focus-visible:ring-[#047896]/25"
+                >
+                  <span className="shrink-0 rounded border border-[#dee2e6] bg-[#f0f1f3] px-2 py-1 text-[11px]">
+                    Preview
+                  </span>
+                  <span className="ml-2 min-w-0 flex-1 truncate text-[11px] text-[#374151]">
+                    {statusText}
+                  </span>
+                  <span className="ml-2 shrink-0">
+                    <DocumentStatusBadge uploadKey={uploadKey} showControls={false} />
+                  </span>
+                  <span className="ml-1 shrink-0 rounded border border-[#e8ecef] bg-[#f8f9fb] px-1.5 py-[1px] text-[10px] font-semibold text-[#6a7380]">
+                    {checklistProgress.done}/{checklistProgress.total}
+                  </span>
+                  {(() => {
+                    const mCount =
+                      readMismatches && deriveDocType
+                        ? readMismatches(uploadKey, deriveDocType({ uploadKey }), scope)
+                        : 0
+                    return mCount > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: '#92400e',
+                          background: '#fffbeb',
+                          border: '1px solid #fcd34d',
+                          borderRadius: 4,
+                          padding: '1px 5px',
+                          marginLeft: 4,
+                        }}
+                      >
+                        ⚠ {mCount} mismatch{mCount > 1 ? 'es' : ''}
+                      </span>
+                    ) : null
+                  })()}
+                </button>
+              </div>
             ) : (
               <label
                 htmlFor={fileInputId}
@@ -545,7 +643,17 @@ function KycDocumentRow({
                 accent={TEAL_PARTY}
                 count={1}
                 expanded={attachmentsOpen}
-                onToggle={() => setAttachmentsOpen((o) => !o)}
+                onToggle={() => {
+                  if (!onExpandPreview || !attachment) return
+                  onExpandPreview({
+                    ...attachment,
+                    uploadKey,
+                    scope: DOCUMENT_UPLOAD_SCOPE,
+                    docType: kycType,
+                    label: KYC_TYPE_LABEL[kycType] ?? 'Document',
+                    type: attachment.type || (attachment.kind === 'pdf' ? 'application/pdf' : 'image/*'),
+                  })
+                }}
               />
             ) : null}
           </div>
@@ -571,14 +679,8 @@ function KycDocumentRow({
       {attachmentsOpen && hasAttachmentDisplay(attachment) ? (
         <div
           className="mt-4 w-full cursor-pointer rounded-lg border border-[#94a3b8] bg-[#eef2f7] p-2 shadow-md sm:p-4 md:p-6"
-          onClick={() => setAttachmentsOpen(false)}
-          title="Click to hide preview"
-          role="presentation"
         >
-          <FullSizeAttachmentPreview
-            file={attachment}
-            onRequestClose={() => setAttachmentsOpen(false)}
-          />
+          <FullSizeAttachmentPreview file={attachment} />
         </div>
       ) : null}
     </div>
@@ -595,6 +697,11 @@ function DocumentSection({
   uploadsByKey,
   onFileSelected,
   registerPickTrigger,
+  onExpandPreview,
+  scope,
+  deriveDocType,
+  readChecklistProgress,
+  readMismatches,
 }) {
   const initialIds = SECTION_INITIAL_ROW_IDS[sectionKey] ?? ['row-0']
   const [rowIds, setRowIds] = useState(() => initialIds)
@@ -653,6 +760,11 @@ function DocumentSection({
                 attachment={uploadsByKey[uploadKey]}
                 onFileSelected={onFileSelected}
                 registerPickTrigger={registerPickTrigger}
+                onExpandPreview={onExpandPreview}
+                scope={scope}
+                deriveDocType={deriveDocType}
+                readChecklistProgress={readChecklistProgress}
+                readMismatches={readMismatches}
               />
             )
           })}
@@ -666,6 +778,11 @@ function KycDocumentsBlock({
   uploadsByKey,
   onFileSelected,
   registerPickTrigger,
+  onExpandPreview,
+  scope,
+  deriveDocType,
+  readChecklistProgress,
+  readMismatches,
 }) {
   const [rowIds, setRowIds] = useState(() => [...KYC_INITIAL_ROW_IDS])
   const [open, setOpen] = useState(true)
@@ -707,6 +824,11 @@ function KycDocumentsBlock({
                   attachment={uploadsByKey[uploadKey]}
                   onFileSelected={onFileSelected}
                   registerPickTrigger={registerPickTrigger}
+                  onExpandPreview={onExpandPreview}
+                  scope={scope}
+                  deriveDocType={deriveDocType}
+                  readChecklistProgress={readChecklistProgress}
+                  readMismatches={readMismatches}
                 />
               )
             })}
@@ -748,6 +870,7 @@ export default function UploadDocuments() {
   const [guarantor2Open, setGuarantor2Open] = useState(false)
 
   const [uploadsByKey, setUploadsByKey] = useState({})
+  const [previewModal, setPreviewModal] = useState(null)
   const [saveStatus, setSaveStatus] = useState(null)
   const [storageError, setStorageError] = useState(null)
   const pickTriggersRef = useRef(new Map())
@@ -778,6 +901,9 @@ export default function UploadDocuments() {
             name: row.name,
             objectUrl: URL.createObjectURL(blob),
             kind: isPdf ? 'pdf' : 'image',
+            type: row.type || (isPdf ? 'application/pdf' : 'image/*'),
+            uploadKey: row.uploadKey,
+            scope: row.scope ?? DOCUMENT_UPLOAD_SCOPE,
           }
         }
         if (cancelled) {
@@ -813,6 +939,61 @@ export default function UploadDocuments() {
     return () => pickTriggersRef.current.delete(key)
   }, [])
 
+  function deriveDocType(doc) {
+    const name = String(doc.label || doc.name || '').toLowerCase()
+    if (name.includes('trade') || name.includes('licence')) return 'trade-licence'
+    if (name.includes('nid') || name.includes('national')) return 'nid'
+    if (name.includes('passport')) return 'passport'
+    if (name.includes('tin')) return 'tin'
+    if (name.includes('bank') || name.includes('statement')) return 'bank-statement'
+    return getDocumentFields('default') ? 'default' : 'default'
+  }
+
+  function readChecklistProgress(uploadKey) {
+    try {
+      const items = getDocumentChecklist(deriveDocType({ uploadKey }))
+      const raw = localStorage.getItem(`elap_doc_checklist_${uploadKey}`)
+      const checks = raw ? JSON.parse(raw) : {}
+      const done = items.filter((i) => checks[i.key]).length
+      return { done, total: items.length }
+    } catch {
+      return { done: 0, total: 0 }
+    }
+  }
+
+  function readMismatches(uploadKey, docType, scope) {
+    try {
+      const raw = localStorage.getItem(`elap_doc_data_${uploadKey}_${scope}`)
+      const values = raw ? JSON.parse(raw) : {}
+      const trackingId = scope?.split('::')?.[0] || scope
+      const profile = getCaseProfile(trackingId)
+      if (!profile) return 0
+      const rules =
+        {
+          'trade-licence': [
+            { fieldKey: 'businessName', profileKey: 'businessName' },
+            { fieldKey: 'ownerAddress', profileKey: 'businessLocation' },
+          ],
+          nid: [{ fieldKey: 'fullName', profileKey: 'businessName' }],
+          'bank-statement': [
+            { fieldKey: 'accountName', profileKey: 'businessName' },
+            { fieldKey: 'branchName', profileKey: 'branchName' },
+          ],
+        }[docType] || []
+      return rules.filter(({ fieldKey, profileKey }) => {
+        const dv = String(values[fieldKey] || '')
+          .trim()
+          .toLowerCase()
+        const pv = String(profile[profileKey] || '')
+          .trim()
+          .toLowerCase()
+        return dv && pv && dv !== pv
+      }).length
+    } catch {
+      return 0
+    }
+  }
+
   const onFileSelected = useCallback(async (uploadKey, file) => {
     if (!file) return
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -827,6 +1008,9 @@ export default function UploadDocuments() {
           name: file.name,
           objectUrl,
           kind,
+          type: file.type || (isPdf ? 'application/pdf' : 'image/*'),
+          uploadKey,
+          scope: DOCUMENT_UPLOAD_SCOPE,
         },
       }
     })
@@ -843,7 +1027,14 @@ export default function UploadDocuments() {
       console.warn('IndexedDB save failed:', err)
     }
 
-    let finalEntry = { name: file.name, objectUrl, kind }
+    let finalEntry = {
+      name: file.name,
+      objectUrl,
+      kind,
+      type: file.type || (isPdf ? 'application/pdf' : 'image/*'),
+      uploadKey,
+      scope: DOCUMENT_UPLOAD_SCOPE,
+    }
     if (import.meta.env.DEV) {
       try {
         const rel = canonicalUserDocumentStoragePath(uploadKey, file.name)
@@ -854,6 +1045,9 @@ export default function UploadDocuments() {
             name: file.name,
             publicUrl: `${data.publicPath}?v=${file.lastModified}`,
             kind,
+            type: file.type || (isPdf ? 'application/pdf' : 'image/*'),
+            uploadKey,
+            scope: DOCUMENT_UPLOAD_SCOPE,
           }
         }
       } catch (err) {
@@ -960,6 +1154,20 @@ export default function UploadDocuments() {
               uploadsByKey={uploadsByKey}
               onFileSelected={onFileSelected}
               registerPickTrigger={registerPickTrigger}
+              scope={DOCUMENT_UPLOAD_SCOPE}
+              deriveDocType={deriveDocType}
+              onExpandPreview={(doc) =>
+                setPreviewModal({
+                  imageUrl: attachmentDisplayUrl(doc),
+                  uploadKey: doc.uploadKey,
+                  scope: doc.scope,
+                  docType: deriveDocType(doc),
+                  docLabel: doc.label || doc.name || 'Document',
+                  fileType: doc.type || '',
+                })
+              }
+              readChecklistProgress={readChecklistProgress}
+              readMismatches={readMismatches}
             />
             <DocumentSection
               title="Additional Documents"
@@ -970,6 +1178,20 @@ export default function UploadDocuments() {
               uploadsByKey={uploadsByKey}
               onFileSelected={onFileSelected}
               registerPickTrigger={registerPickTrigger}
+              scope={DOCUMENT_UPLOAD_SCOPE}
+              deriveDocType={deriveDocType}
+              onExpandPreview={(doc) =>
+                setPreviewModal({
+                  imageUrl: attachmentDisplayUrl(doc),
+                  uploadKey: doc.uploadKey,
+                  scope: doc.scope,
+                  docType: deriveDocType(doc),
+                  docLabel: doc.label || doc.name || 'Document',
+                  fileType: doc.type || '',
+                })
+              }
+              readChecklistProgress={readChecklistProgress}
+              readMismatches={readMismatches}
             />
             <DocumentSection
               title="General Documents"
@@ -980,6 +1202,20 @@ export default function UploadDocuments() {
               uploadsByKey={uploadsByKey}
               onFileSelected={onFileSelected}
               registerPickTrigger={registerPickTrigger}
+              scope={DOCUMENT_UPLOAD_SCOPE}
+              deriveDocType={deriveDocType}
+              onExpandPreview={(doc) =>
+                setPreviewModal({
+                  imageUrl: attachmentDisplayUrl(doc),
+                  uploadKey: doc.uploadKey,
+                  scope: doc.scope,
+                  docType: deriveDocType(doc),
+                  docLabel: doc.label || doc.name || 'Document',
+                  fileType: doc.type || '',
+                })
+              }
+              readChecklistProgress={readChecklistProgress}
+              readMismatches={readMismatches}
             />
             <DocumentSection
               title="Charge Documents"
@@ -990,6 +1226,20 @@ export default function UploadDocuments() {
               uploadsByKey={uploadsByKey}
               onFileSelected={onFileSelected}
               registerPickTrigger={registerPickTrigger}
+              scope={DOCUMENT_UPLOAD_SCOPE}
+              deriveDocType={deriveDocType}
+              onExpandPreview={(doc) =>
+                setPreviewModal({
+                  imageUrl: attachmentDisplayUrl(doc),
+                  uploadKey: doc.uploadKey,
+                  scope: doc.scope,
+                  docType: deriveDocType(doc),
+                  docLabel: doc.label || doc.name || 'Document',
+                  fileType: doc.type || '',
+                })
+              }
+              readChecklistProgress={readChecklistProgress}
+              readMismatches={readMismatches}
             />
             <DocumentSection
               title="FDR/DPS Related Documents"
@@ -1000,6 +1250,20 @@ export default function UploadDocuments() {
               uploadsByKey={uploadsByKey}
               onFileSelected={onFileSelected}
               registerPickTrigger={registerPickTrigger}
+              scope={DOCUMENT_UPLOAD_SCOPE}
+              deriveDocType={deriveDocType}
+              onExpandPreview={(doc) =>
+                setPreviewModal({
+                  imageUrl: attachmentDisplayUrl(doc),
+                  uploadKey: doc.uploadKey,
+                  scope: doc.scope,
+                  docType: deriveDocType(doc),
+                  docLabel: doc.label || doc.name || 'Document',
+                  fileType: doc.type || '',
+                })
+              }
+              readChecklistProgress={readChecklistProgress}
+              readMismatches={readMismatches}
             />
 
             <PartySection
@@ -1030,6 +1294,20 @@ export default function UploadDocuments() {
                 uploadsByKey={uploadsByKey}
                 onFileSelected={onFileSelected}
                 registerPickTrigger={registerPickTrigger}
+                scope={DOCUMENT_UPLOAD_SCOPE}
+                deriveDocType={deriveDocType}
+                onExpandPreview={(doc) =>
+                  setPreviewModal({
+                    imageUrl: attachmentDisplayUrl(doc),
+                    uploadKey: doc.uploadKey,
+                    scope: doc.scope,
+                    docType: deriveDocType(doc),
+                    docLabel: doc.label || doc.name || 'Document',
+                    fileType: doc.type || '',
+                  })
+                }
+                readChecklistProgress={readChecklistProgress}
+                readMismatches={readMismatches}
               />
             </PartySection>
 
@@ -1083,6 +1361,17 @@ export default function UploadDocuments() {
                 Save
               </button>
             </div>
+
+            <DocumentPreviewModal
+              open={previewModal !== null}
+              onClose={() => setPreviewModal(null)}
+              imageUrl={previewModal?.imageUrl || ''}
+              uploadKey={previewModal?.uploadKey || ''}
+              scope={previewModal?.scope || ''}
+              docType={previewModal?.docType || 'default'}
+              docLabel={previewModal?.docLabel || 'Document'}
+              fileType={previewModal?.fileType || ''}
+            />
           </>
         )}
       </div>

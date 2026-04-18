@@ -27,3 +27,5 @@ dist-ssr
 public/user-documents/*
 !public/user-documents/.gitkeep
 !public/user-documents/manifest.json
+
+.vercel
