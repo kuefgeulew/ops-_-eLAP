@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "scope": "4909930",
+  "updatedAt": "2026-04-11T12:33:44.070Z",
+  "entries": {
+    "business::business-0": {
+      "path": "business__business-0/Screenshot_20.png",
+      "name": "Screenshot_20.png",
+      "kind": "image"
+    },
+    "business::business-1": {
+      "path": "business__business-1/images.jpg",
+      "name": "images.jpg",
+      "kind": "image"
+    },
+    "business::business-2": {
+      "path": "business__business-2/1.webp",
+      "name": "1.webp",
+      "kind": "image"
+    },
+    "additional::additional-0": {
+      "path": "additional__additional-0/1__1_.webp",
+      "name": "1__1_.webp",
+      "kind": "image"
+    },
+    "general::general-0": {
+      "path": "general__general-0/1__2_.webp",
+      "name": "1__2_.webp",
+      "kind": "image"
+    },
+    "general::general-1": {
+      "path": "general__general-1/images__1_.jpg",
+      "name": "images__1_.jpg",
+      "kind": "image"
+    },
+    "general::general-2": {
+      "path": "general__general-2/1__3_.webp",
+      "name": "1__3_.webp",
+      "kind": "image"
+    },
+    "charge::charge-0": {
+      "path": "charge__charge-0/images.png",
+      "name": "images.png",
+      "kind": "image"
+    },
+    "charge::charge-1": {
+      "path": "charge__charge-1/1__4_.webp",
+      "name": "1__4_.webp",
+      "kind": "image"
+    },
+    "fdr-dps::fdr-0": {
+      "path": "fdr-dps__fdr-0/1__5_.webp",
+      "name": "1__5_.webp",
+      "kind": "image"
+    },
+    "fdr-dps::fdr-1": {
+      "path": "fdr-dps__fdr-1/1__7_.webp",
+      "name": "1__7_.webp",
+      "kind": "image"
+    },
+    "owner-kyc::kyc-0": {
+      "path": "owner-kyc__kyc-0/f0b4f3a1738739e5049175750fca8ab0.jpg",
+      "name": "f0b4f3a1738739e5049175750fca8ab0.jpg",
+      "kind": "image"
+    },
+    "owner-kyc::kyc-1": {
+      "path": "owner-kyc__kyc-1/images__2_.jpg",
+      "name": "images__2_.jpg",
+      "kind": "image"
+    }
+  }
+}

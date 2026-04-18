@@ -1,0 +1,19 @@
+/* App-wide base rules and Tailwind v4 entry. */
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
