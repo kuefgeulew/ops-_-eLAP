@@ -138,7 +138,11 @@ async function isReachablePublicAttachment(url) {
   if (!url) return false
   try {
     const res = await fetch(url, { method: 'HEAD', cache: 'no-store' })
-    return res.ok
+    if (!res.ok) return false
+    const contentType = (res.headers.get('content-type') || '').toLowerCase()
+    if (!contentType) return true
+    if (contentType.includes('text/html')) return false
+    return contentType.startsWith('image/') || contentType.includes('application/pdf')
   } catch {
     return false
   }
