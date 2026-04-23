@@ -894,7 +894,8 @@ export default function UploadDocuments() {
         for (const row of rows) {
           const blob = row.body
           if (!blob) continue
-          if (next[row.uploadKey]?.publicUrl) continue
+          // Prefer browser-stored files in all environments.
+          // On Vercel, manifest public URLs may exist but point to files that are not deployed.
           const isPdf =
             row.type === 'application/pdf' || row.name?.toLowerCase().endsWith('.pdf')
           next[row.uploadKey] = {
