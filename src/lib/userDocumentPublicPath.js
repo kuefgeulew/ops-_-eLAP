@@ -57,7 +57,9 @@ export function manifestToAttachmentMap(manifest) {
 
 export function attachmentDisplayUrl(attachment) {
   if (!attachment) return ''
-  return attachment.publicUrl || attachment.objectUrl || ''
+  // Prefer in-browser object URLs when available.
+  // This avoids broken previews in environments where /user-documents files are not deployed.
+  return attachment.objectUrl || attachment.publicUrl || ''
 }
 
 export function hasAttachmentDisplay(attachment) {
