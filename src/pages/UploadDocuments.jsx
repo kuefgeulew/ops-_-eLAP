@@ -134,6 +134,16 @@ async function persistFileToPublicDev(relativePath, file, uploadKey, kind) {
   return res.json()
 }
 
+async function isReachablePublicAttachment(url) {
+  if (!url) return false
+  try {
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 function FullSizeAttachmentPreview({ file, onRequestClose = null }) {
   const src = attachmentDisplayUrl(file)
   if (!src) return null
@@ -890,6 +900,18 @@ export default function UploadDocuments() {
         ])
         if (cancelled) return
         const fromDisk = manifestToAttachmentMap(manifest)
+        const fromDiskEntries = Object.entries(fromDisk)
+        if (fromDiskEntries.length) {
+          const checks = await Promise.all(
+            fromDiskEntries.map(async ([uploadKey, value]) => {
+              const ok = await isReachablePublicAttachment(value?.publicUrl || '')
+              return [uploadKey, ok]
+            }),
+          )
+          for (const [uploadKey, ok] of checks) {
+            if (!ok) delete fromDisk[uploadKey]
+          }
+        }
         const next = { ...fromDisk }
         for (const row of rows) {
           const blob = row.body
